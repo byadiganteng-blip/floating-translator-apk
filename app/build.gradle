@@ -1,0 +1,31 @@
+
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'com.floating.translator'
+    compileSdk 34
+    defaultConfig {
+        applicationId "com.floating.translator"
+        minSdk 21
+        targetSdk 34
+        versionCode 1
+        versionName "1.0"
+        multiDexEnabled true
+    }
+    buildTypes {
+        release { minifyEnabled false }
+        debug { minifyEnabled false }
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+}
+
+dependencies {
+    implementation 'androidx.appcompat:appcompat:1.6.1'
+    implementation 'com.google.android.material:material:1.11.0'
+    implementation 'androidx.multidex:multidex:2.0.1'
+}
