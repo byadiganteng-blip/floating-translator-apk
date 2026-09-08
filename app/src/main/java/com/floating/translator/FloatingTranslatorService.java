@@ -1,4 +1,3 @@
-
 package com.floating.translator;
 
 import android.app.Notification;
@@ -26,6 +25,8 @@ import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.net.URLEncoder;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class FloatingTranslatorService extends Service {
     
@@ -38,11 +39,17 @@ public class FloatingTranslatorService extends Service {
     private Button btnClose;
     
     private boolean isEnglishToIndonesian = true;
+    private ExecutorService executor;
     
-    // Drag variables
     private float initialX, initialY;
     private float initialTouchX, initialTouchY;
     private boolean isDragging = false;
+    
+    @Override
+    public void onCreate() {
+        super.onCreate();
+        executor = Executors.newSingleThreadExecutor();
+    }
     
     @Override
     public IBinder onBind(Intent intent) { return null; }
@@ -73,7 +80,7 @@ public class FloatingTranslatorService extends Service {
         
         Notification notification = builder
             .setContentTitle("Floating Translator")
-            .setContentText("Aktif - Terjemahkan teks")
+            .setContentText("Aktif")
             .setSmallIcon(android.R.drawable.ic_menu_edit)
             .build();
         
@@ -82,7 +89,6 @@ public class FloatingTranslatorService extends Service {
     
     private void setupFloatingWindow() {
         windowManager = (WindowManager) getSystemService(WINDOW_SERVICE);
-        
         LayoutInflater inflater = (LayoutInflater) getSystemService(LAYOUT_INFLATER_SERVICE);
         floatingView = inflater.inflate(R.layout.floating_translator, null);
         
@@ -93,40 +99,33 @@ public class FloatingTranslatorService extends Service {
         btnClose = floatingView.findViewById(R.id.btnClose);
         
         WindowManager.LayoutParams params = new WindowManager.LayoutParams(
-            350,
-            200,
+            350, 200,
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
             PixelFormat.TRANSLUCENT
         );
-        
         params.gravity = Gravity.TOP | Gravity.START;
         params.x = 50;
         params.y = 150;
         
         windowManager.addView(floatingView, params);
-        
-        setupButtons(params);
+        setupButtons();
         setupDrag(params);
     }
     
-    private void setupButtons(WindowManager.LayoutParams params) {
+    private void setupButtons() {
         btnTranslate.setOnClickListener(v -> {
             String text = etInput.getText().toString().trim();
-            if (!text.isEmpty()) {
-                translateText(text);
-            }
+            if (!text.isEmpty()) translateText(text);
         });
         
         btnSwap.setOnClickListener(v -> {
             isEnglishToIndonesian = !isEnglishToIndonesian;
-            String hint = isEnglishToIndonesian ? "English → Indonesia" : "Indonesia → English";
+            String hint = isEnglishToIndonesian ? "EN → ID" : "ID → EN";
             Toast.makeText(this, hint, Toast.LENGTH_SHORT).show();
         });
         
-        btnClose.setOnClickListener(v -> {
-            stopSelf();
-        });
+        btnClose.setOnClickListener(v -> stopSelf());
     }
     
     private void setupDrag(WindowManager.LayoutParams params) {
@@ -139,7 +138,6 @@ public class FloatingTranslatorService extends Service {
                     initialTouchY = event.getRawY();
                     isDragging = true;
                     return true;
-                    
                 case MotionEvent.ACTION_MOVE:
                     if (isDragging) {
                         params.x = (int) (initialX + (event.getRawX() - initialTouchX));
@@ -147,7 +145,6 @@ public class FloatingTranslatorService extends Service {
                         windowManager.updateViewLayout(floatingView, params);
                     }
                     return true;
-                    
                 case MotionEvent.ACTION_UP:
                     isDragging = false;
                     return true;
@@ -157,7 +154,7 @@ public class FloatingTranslatorService extends Service {
     }
     
     private void translateText(String text) {
-        new Thread(() -> {
+        executor.execute(() -> {
             try {
                 String source = isEnglishToIndonesian ? "en" : "id";
                 String target = isEnglishToIndonesian ? "id" : "en";
@@ -178,50 +175,34 @@ public class FloatingTranslatorService extends Service {
                 while ((line = reader.readLine()) != null) sb.append(line);
                 reader.close();
                 
-                // Parse response
-                String response = sb.toString();
-                String translated = parseTranslation(response);
+                String translated = parseTranslation(sb.toString());
                 
                 runOnUiThread(() -> {
                     tvOutput.setText(translated);
-                    
-                    // Copy ke clipboard
                     ClipboardManager clipboard = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
                     ClipData clip = ClipData.newPlainText("translation", translated);
                     clipboard.setPrimaryClip(clip);
                 });
-                
             } catch (Exception e) {
                 runOnUiThread(() -> tvOutput.setText("Error: " + e.getMessage()));
             }
-        }).start();
+        });
     }
     
     private String parseTranslation(String response) {
         try {
-            // Format: [[["translated","source",...]],...]
             StringBuilder result = new StringBuilder();
-            boolean inQuote = false;
-            StringBuilder current = new StringBuilder();
             int quoteCount = 0;
+            boolean inQuote = false;
             
             for (char c : response.toCharArray()) {
                 if (c == '"') {
                     quoteCount++;
-                    if (quoteCount == 1) {
-                        inQuote = true;
-                        continue;
-                    } else if (quoteCount == 2) {
-                        inQuote = false;
-                        result.append(current);
-                        break;
-                    }
+                    if (quoteCount == 1) { inQuote = true; continue; }
+                    if (quoteCount == 2) break;
                 }
-                if (inQuote) {
-                    current.append(c);
-                }
+                if (inQuote) result.append(c);
             }
-            
             return result.toString();
         } catch (Exception e) {
             return "Gagal terjemahkan";
@@ -230,10 +211,9 @@ public class FloatingTranslatorService extends Service {
     
     @Override
     public void onDestroy() {
+        if (executor != null) executor.shutdown();
         if (floatingView != null && windowManager != null) {
-            try {
-                windowManager.removeView(floatingView);
-            } catch (Exception e) {}
+            try { windowManager.removeView(floatingView); } catch (Exception e) {}
         }
         super.onDestroy();
     }
