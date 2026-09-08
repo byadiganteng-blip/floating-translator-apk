@@ -1,4 +1,3 @@
-
 name: Build APK
 on:
   push:
@@ -21,7 +20,7 @@ jobs:
         unzip -q gradle-8.4-bin.zip
         echo "$PWD/gradle-8.4/bin" >> $GITHUB_PATH
     - name: Build
-      run: gradle :app:assembleDebug
+      run: gradle :app:assembleDebug --no-daemon
     - name: Upload
       uses: actions/upload-artifact@v4
       with:
