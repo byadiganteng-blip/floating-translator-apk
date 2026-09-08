@@ -23,9 +23,6 @@ import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
 import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
@@ -39,6 +36,7 @@ public class FloatingTranslatorService extends Service {
     private View floatingView;
     private EditText etInput;
     private TextView tvOutput;
+    private TextView tvRecommendation;
     private Button btnTranslate;
     private Button btnSwap;
     private Button btnClose;
@@ -87,7 +85,7 @@ public class FloatingTranslatorService extends Service {
         
         Notification notification = builder
             .setContentTitle("Floating Translator")
-            .setContentText("Aktif - Created By Yad")
+            .setContentText("By Yad")
             .setSmallIcon(android.R.drawable.ic_menu_edit)
             .build();
         
@@ -101,41 +99,35 @@ public class FloatingTranslatorService extends Service {
         
         etInput = floatingView.findViewById(R.id.etInput);
         tvOutput = floatingView.findViewById(R.id.tvOutput);
+        tvRecommendation = floatingView.findViewById(R.id.tvRecommendation);
         btnTranslate = floatingView.findViewById(R.id.btnTranslate);
         btnSwap = floatingView.findViewById(R.id.btnSwap);
         btnClose = floatingView.findViewById(R.id.btnClose);
         
-        // FIX: Set focusable agar keyboard muncul
-        etInput.setFocusable(true);
-        etInput.setFocusableInTouchMode(true);
-        etInput.requestFocus();
-        
         WindowManager.LayoutParams params = new WindowManager.LayoutParams(
-            350, 300,
+            280,
+            WindowManager.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE | WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
             PixelFormat.TRANSLUCENT
         );
         
         params.gravity = Gravity.TOP | Gravity.START;
-        params.x = 50;
-        params.y = 100;
+        params.x = 30;
+        params.y = 80;
         
         windowManager.addView(floatingView, params);
-        setupButtons();
+        setupButtons(params);
         setupDrag(params);
     }
     
-    private void setupButtons() {
+    private void setupButtons(final WindowManager.LayoutParams params) {
         btnTranslate.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 String text = etInput.getText().toString().trim();
                 if (!text.isEmpty()) {
                     translateText(text);
-                } else {
-                    Toast.makeText(FloatingTranslatorService.this, 
-                        "Ketik teks dulu!", Toast.LENGTH_SHORT).show();
                 }
             }
         });
@@ -144,7 +136,7 @@ public class FloatingTranslatorService extends Service {
             @Override
             public void onClick(View v) {
                 isEnglishToIndonesian = !isEnglishToIndonesian;
-                String hint = isEnglishToIndonesian ? "🇬🇧 EN → 🇮🇩 ID" : "🇮🇩 ID → 🇬🇧 EN";
+                String hint = isEnglishToIndonesian ? "EN → ID" : "ID → EN";
                 Toast.makeText(FloatingTranslatorService.this, hint, Toast.LENGTH_SHORT).show();
             }
         });
@@ -158,7 +150,9 @@ public class FloatingTranslatorService extends Service {
     }
     
     private void setupDrag(final WindowManager.LayoutParams params) {
-        floatingView.setOnTouchListener(new View.OnTouchListener() {
+        View dragHandle = floatingView.findViewById(R.id.dragHandle);
+        
+        dragHandle.setOnTouchListener(new View.OnTouchListener() {
             @Override
             public boolean onTouch(View v, MotionEvent event) {
                 switch (event.getAction()) {
@@ -187,29 +181,59 @@ public class FloatingTranslatorService extends Service {
     }
     
     private void translateText(final String text) {
-        tvOutput.setText("🔄 Menerjemahkan...");
+        tvOutput.setVisibility(View.VISIBLE);
+        tvOutput.setText("...");
         
         executor.execute(new Runnable() {
             @Override
             public void run() {
                 String translated = translateOnline(text);
                 
-                if (translated == null || translated.startsWith("Error")) {
-                    // Fallback ke offline dictionary
+                if (translated == null) {
                     translated = translateOffline(text);
                 }
                 
                 final String result = translated;
+                final String recommendation = getRecommendation(text);
                 
                 mainHandler.post(new Runnable() {
                     @Override
                     public void run() {
                         tvOutput.setText(result);
+                        tvOutput.setVisibility(View.VISIBLE);
+                        
+                        if (recommendation != null && !recommendation.isEmpty()) {
+                            tvRecommendation.setText("💡 " + recommendation);
+                            tvRecommendation.setVisibility(View.VISIBLE);
+                        }
+                        
                         copyToClipboard(result);
                     }
                 });
             }
         });
+    }
+    
+    private String getRecommendation(String text) {
+        String lower = text.toLowerCase().trim();
+        
+        if (isEnglishToIndonesian) {
+            String[][] suggestions = {
+                {"hello", "Coba: halo, good morning, thank you, how are you"},
+                {"good", "Coba: good morning, good night, good luck"},
+                {"thank", "Coba: thank you very much, thanks a lot"},
+                {"love", "Coba: i love you, love you too"},
+                {"eat", "Coba: eat, drink, food, hungry"},
+                {"go", "Coba: go, come, go home, go to school"},
+            };
+            
+            for (String[] s : suggestions) {
+                if (lower.contains(s[0])) return s[1];
+            }
+            return "Rekomendasi: halo, terima kasih, apa kabar, selamat pagi";
+        } else {
+            return "Rekomendasi: hello, thank you, how are you, good morning";
+        }
     }
     
     private String translateOnline(String text) {
@@ -244,7 +268,6 @@ public class FloatingTranslatorService extends Service {
     }
     
     private String translateOffline(String text) {
-        // Simple offline dictionary (EN → ID)
         String lower = text.toLowerCase().trim();
         
         if (isEnglishToIndonesian) {
@@ -275,7 +298,7 @@ public class FloatingTranslatorService extends Service {
                     return text.replaceAll("(?i)" + pair[0], pair[1]);
                 }
             }
-            return "Terjemahan offline tidak ditemukan untuk: " + text;
+            return "Offline: " + text;
         } else {
             String[][] dict = {
                 {"halo", "hello"}, {"selamat pagi", "good morning"},
@@ -304,7 +327,7 @@ public class FloatingTranslatorService extends Service {
                     return text.replaceAll("(?i)" + pair[0], pair[1]);
                 }
             }
-            return "Offline translation not found for: " + text;
+            return "Offline: " + text;
         }
     }
     
@@ -313,7 +336,6 @@ public class FloatingTranslatorService extends Service {
         if (clipboard != null) {
             ClipData clip = ClipData.newPlainText("translation", text);
             clipboard.setPrimaryClip(clip);
-            Toast.makeText(this, "✅ Tersalin!", Toast.LENGTH_SHORT).show();
         }
     }
     
@@ -336,7 +358,7 @@ public class FloatingTranslatorService extends Service {
             }
             return result.toString();
         } catch (Exception e) {
-            return "Gagal terjemahkan";
+            return "Gagal";
         }
     }
     
