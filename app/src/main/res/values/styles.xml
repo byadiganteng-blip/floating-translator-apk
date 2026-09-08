@@ -1,0 +1,7 @@
+
+<resources>
+    <style name="Theme.App" parent="Theme.AppCompat.Light.NoActionBar">
+        <item name="colorPrimary">#4CAF50</item>
+        <item name="android:statusBarColor">#2E7D32</item>
+    </style>
+</resources>
