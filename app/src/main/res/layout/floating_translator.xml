@@ -3,68 +3,98 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:padding="8dp"
-    android:background="#EE1a1a2e">
-    <TextView
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="🌐 Translator"
-        android:textColor="#4CAF50"
-        android:textSize="12sp"
-        android:textStyle="bold"/>
-    <EditText
-        android:id="@+id/etInput"
-        android:layout_width="match_parent"
-        android:layout_height="40dp"
-        android:hint="Ketik teks..."
-        android:textColor="#FFF"
-        android:textColorHint="#888"
-        android:background="#2a2a4e"
-        android:padding="8dp"
-        android:textSize="12sp"
-        android:layout_marginTop="4dp"/>
+    android:padding="10dp"
+    android:background="@drawable/bg_floating"
+    android:elevation="8dp"
+    android:focusable="true"
+    android:clickable="true">
+    
+    <!-- Header -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
-        android:layout_marginTop="4dp">
-        <Button
-            android:id="@+id/btnTranslate"
+        android:gravity="center_vertical">
+        
+        <TextView
             android:layout_width="0dp"
-            android:layout_height="35dp"
+            android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="Terjemahkan"
-            android:textSize="10sp"
-            android:background="#4CAF50"/>
+            android:text="🌐 Translator"
+            android:textColor="#4CAF50"
+            android:textSize="14sp"
+            android:textStyle="bold"/>
+        
         <Button
             android:id="@+id/btnSwap"
-            android:layout_width="0dp"
-            android:layout_height="35dp"
-            android:layout_weight="1"
-            android:text="⇄ Swap"
-            android:textSize="10sp"
+            android:layout_width="35dp"
+            android:layout_height="30dp"
+            android:text="⇄"
+            android:textSize="14sp"
             android:background="#2a2a4e"
             android:textColor="#FFF"
-            android:layout_marginStart="4dp"/>
+            android:padding="0dp"/>
+        
         <Button
             android:id="@+id/btnClose"
-            android:layout_width="0dp"
-            android:layout_height="35dp"
-            android:layout_weight="1"
+            android:layout_width="35dp"
+            android:layout_height="30dp"
             android:text="✕"
-            android:textSize="10sp"
+            android:textSize="14sp"
             android:background="#FF4444"
+            android:padding="0dp"
             android:layout_marginStart="4dp"/>
     </LinearLayout>
+    
+    <!-- Input Area -->
+    <EditText
+        android:id="@+id/etInput"
+        android:layout_width="match_parent"
+        android:layout_height="50dp"
+        android:hint="Ketik teks di sini..."
+        android:textColor="#FFF"
+        android:textColorHint="#888"
+        android:background="@drawable/bg_input"
+        android:padding="12dp"
+        android:textSize="13sp"
+        android:layout_marginTop="8dp"
+        android:inputType="text"
+        android:focusable="true"
+        android:focusableInTouchMode="true"
+        android:cursorVisible="true"/>
+    
+    <!-- Tombol Terjemahkan -->
+    <Button
+        android:id="@+id/btnTranslate"
+        android:layout_width="match_parent"
+        android:layout_height="40dp"
+        android:text="🔄 Terjemahkan"
+        android:textSize="13sp"
+        android:textColor="#FFF"
+        android:background="@drawable/bg_button"
+        android:layout_marginTop="8dp"/>
+    
+    <!-- Hasil -->
     <TextView
         android:id="@+id/tvOutput"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="Hasil terjemahan..."
         android:textColor="#FFF"
-        android:textSize="12sp"
-        android:background="#2a2a4e"
-        android:padding="8dp"
-        android:layout_marginTop="4dp"
-        android:minHeight="40dp"/>
+        android:textSize="13sp"
+        android:background="@drawable/bg_output"
+        android:padding="12dp"
+        android:layout_marginTop="8dp"
+        android:minHeight="50dp"/>
+    
+    <!-- Credit -->
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Created By Yad | Designer Yad | Coding By Yad"
+        android:textColor="#666"
+        android:textSize="9sp"
+        android:gravity="center"
+        android:layout_marginTop="4dp"/>
+    
 </LinearLayout>
