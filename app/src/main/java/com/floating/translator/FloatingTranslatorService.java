@@ -10,7 +10,9 @@ import android.content.Context;
 import android.content.Intent;
 import android.graphics.PixelFormat;
 import android.os.Build;
+import android.os.Handler;
 import android.os.IBinder;
+import android.os.Looper;
 import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.MotionEvent;
@@ -39,6 +41,7 @@ public class FloatingTranslatorService extends Service {
     private Button btnClose;
     private boolean isEnglishToIndonesian = true;
     private ExecutorService executor;
+    private Handler mainHandler;
     private float initialX;
     private float initialY;
     private float initialTouchX;
@@ -49,6 +52,7 @@ public class FloatingTranslatorService extends Service {
     public void onCreate() {
         super.onCreate();
         executor = Executors.newSingleThreadExecutor();
+        mainHandler = new Handler(Looper.getMainLooper());
     }
     
     @Override
@@ -68,14 +72,9 @@ public class FloatingTranslatorService extends Service {
         
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             NotificationChannel channel = new NotificationChannel(
-                channelId,
-                "Translator",
-                NotificationManager.IMPORTANCE_LOW
-            );
+                channelId, "Translator", NotificationManager.IMPORTANCE_LOW);
             NotificationManager manager = getSystemService(NotificationManager.class);
-            if (manager != null) {
-                manager.createNotificationChannel(channel);
-            }
+            if (manager != null) manager.createNotificationChannel(channel);
         }
         
         Notification.Builder builder;
@@ -106,8 +105,7 @@ public class FloatingTranslatorService extends Service {
         btnClose = floatingView.findViewById(R.id.btnClose);
         
         WindowManager.LayoutParams params = new WindowManager.LayoutParams(
-            350,
-            200,
+            350, 200,
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
             PixelFormat.TRANSLUCENT
@@ -118,7 +116,6 @@ public class FloatingTranslatorService extends Service {
         params.y = 150;
         
         windowManager.addView(floatingView, params);
-        
         setupButtons();
         setupDrag(params);
     }
@@ -128,9 +125,7 @@ public class FloatingTranslatorService extends Service {
             @Override
             public void onClick(View v) {
                 String text = etInput.getText().toString().trim();
-                if (!text.isEmpty()) {
-                    translateText(text);
-                }
+                if (!text.isEmpty()) translateText(text);
             }
         });
         
@@ -201,15 +196,13 @@ public class FloatingTranslatorService extends Service {
                     BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream()));
                     StringBuilder sb = new StringBuilder();
                     String line;
-                    while ((line = reader.readLine()) != null) {
-                        sb.append(line);
-                    }
+                    while ((line = reader.readLine()) != null) sb.append(line);
                     reader.close();
                     conn.disconnect();
                     
                     final String translated = parseTranslation(sb.toString());
                     
-                    runOnUiThread(new Runnable() {
+                    mainHandler.post(new Runnable() {
                         @Override
                         public void run() {
                             tvOutput.setText(translated);
@@ -221,12 +214,11 @@ public class FloatingTranslatorService extends Service {
                         }
                     });
                     
-                } catch (Exception e) {
-                    final String errorMsg = e.getMessage();
-                    runOnUiThread(new Runnable() {
+                } catch (final Exception e) {
+                    mainHandler.post(new Runnable() {
                         @Override
                         public void run() {
-                            tvOutput.setText("Error: " + errorMsg);
+                            tvOutput.setText("Error: " + e.getMessage());
                         }
                     });
                 }
@@ -247,13 +239,9 @@ public class FloatingTranslatorService extends Service {
                         inQuote = true;
                         continue;
                     }
-                    if (quoteCount == 2) {
-                        break;
-                    }
+                    if (quoteCount == 2) break;
                 }
-                if (inQuote) {
-                    result.append(c);
-                }
+                if (inQuote) result.append(c);
             }
             return result.toString();
         } catch (Exception e) {
@@ -263,15 +251,9 @@ public class FloatingTranslatorService extends Service {
     
     @Override
     public void onDestroy() {
-        if (executor != null) {
-            executor.shutdown();
-        }
+        if (executor != null) executor.shutdown();
         if (floatingView != null && windowManager != null) {
-            try {
-                windowManager.removeView(floatingView);
-            } catch (Exception e) {
-                // Ignore
-            }
+            try { windowManager.removeView(floatingView); } catch (Exception e) {}
         }
         super.onDestroy();
     }
