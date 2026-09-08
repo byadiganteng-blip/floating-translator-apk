@@ -23,6 +23,9 @@ import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
 import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
@@ -42,10 +45,8 @@ public class FloatingTranslatorService extends Service {
     private boolean isEnglishToIndonesian = true;
     private ExecutorService executor;
     private Handler mainHandler;
-    private float initialX;
-    private float initialY;
-    private float initialTouchX;
-    private float initialTouchY;
+    private float initialX, initialY;
+    private float initialTouchX, initialTouchY;
     private boolean isDragging = false;
     
     @Override
@@ -86,7 +87,7 @@ public class FloatingTranslatorService extends Service {
         
         Notification notification = builder
             .setContentTitle("Floating Translator")
-            .setContentText("Aktif")
+            .setContentText("Aktif - Created By Yad")
             .setSmallIcon(android.R.drawable.ic_menu_edit)
             .build();
         
@@ -104,16 +105,21 @@ public class FloatingTranslatorService extends Service {
         btnSwap = floatingView.findViewById(R.id.btnSwap);
         btnClose = floatingView.findViewById(R.id.btnClose);
         
+        // FIX: Set focusable agar keyboard muncul
+        etInput.setFocusable(true);
+        etInput.setFocusableInTouchMode(true);
+        etInput.requestFocus();
+        
         WindowManager.LayoutParams params = new WindowManager.LayoutParams(
-            350, 200,
+            350, 300,
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE | WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
             PixelFormat.TRANSLUCENT
         );
         
         params.gravity = Gravity.TOP | Gravity.START;
         params.x = 50;
-        params.y = 150;
+        params.y = 100;
         
         windowManager.addView(floatingView, params);
         setupButtons();
@@ -125,7 +131,12 @@ public class FloatingTranslatorService extends Service {
             @Override
             public void onClick(View v) {
                 String text = etInput.getText().toString().trim();
-                if (!text.isEmpty()) translateText(text);
+                if (!text.isEmpty()) {
+                    translateText(text);
+                } else {
+                    Toast.makeText(FloatingTranslatorService.this, 
+                        "Ketik teks dulu!", Toast.LENGTH_SHORT).show();
+                }
             }
         });
         
@@ -133,7 +144,7 @@ public class FloatingTranslatorService extends Service {
             @Override
             public void onClick(View v) {
                 isEnglishToIndonesian = !isEnglishToIndonesian;
-                String hint = isEnglishToIndonesian ? "EN to ID" : "ID to EN";
+                String hint = isEnglishToIndonesian ? "🇬🇧 EN → 🇮🇩 ID" : "🇮🇩 ID → 🇬🇧 EN";
                 Toast.makeText(FloatingTranslatorService.this, hint, Toast.LENGTH_SHORT).show();
             }
         });
@@ -176,54 +187,134 @@ public class FloatingTranslatorService extends Service {
     }
     
     private void translateText(final String text) {
+        tvOutput.setText("🔄 Menerjemahkan...");
+        
         executor.execute(new Runnable() {
             @Override
             public void run() {
-                try {
-                    String source = isEnglishToIndonesian ? "en" : "id";
-                    String target = isEnglishToIndonesian ? "id" : "en";
-                    
-                    String urlStr = "https://translate.googleapis.com/translate_a/single?client=gtx&sl=" 
-                        + source + "&tl=" + target + "&dt=t&q=" + URLEncoder.encode(text, "UTF-8");
-                    
-                    URL url = new URL(urlStr);
-                    HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-                    conn.setRequestMethod("GET");
-                    conn.setRequestProperty("User-Agent", "Mozilla/5.0");
-                    conn.setConnectTimeout(10000);
-                    conn.setReadTimeout(15000);
-                    
-                    BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream()));
-                    StringBuilder sb = new StringBuilder();
-                    String line;
-                    while ((line = reader.readLine()) != null) sb.append(line);
-                    reader.close();
-                    conn.disconnect();
-                    
-                    final String translated = parseTranslation(sb.toString());
-                    
-                    mainHandler.post(new Runnable() {
-                        @Override
-                        public void run() {
-                            tvOutput.setText(translated);
-                            ClipboardManager clipboard = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
-                            if (clipboard != null) {
-                                ClipData clip = ClipData.newPlainText("translation", translated);
-                                clipboard.setPrimaryClip(clip);
-                            }
-                        }
-                    });
-                    
-                } catch (final Exception e) {
-                    mainHandler.post(new Runnable() {
-                        @Override
-                        public void run() {
-                            tvOutput.setText("Error: " + e.getMessage());
-                        }
-                    });
+                String translated = translateOnline(text);
+                
+                if (translated == null || translated.startsWith("Error")) {
+                    // Fallback ke offline dictionary
+                    translated = translateOffline(text);
                 }
+                
+                final String result = translated;
+                
+                mainHandler.post(new Runnable() {
+                    @Override
+                    public void run() {
+                        tvOutput.setText(result);
+                        copyToClipboard(result);
+                    }
+                });
             }
         });
+    }
+    
+    private String translateOnline(String text) {
+        try {
+            String source = isEnglishToIndonesian ? "en" : "id";
+            String target = isEnglishToIndonesian ? "id" : "en";
+            
+            String urlStr = "https://translate.googleapis.com/translate_a/single?client=gtx&sl=" 
+                + source + "&tl=" + target + "&dt=t&q=" + URLEncoder.encode(text, "UTF-8");
+            
+            URL url = new URL(urlStr);
+            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+            conn.setRequestMethod("GET");
+            conn.setRequestProperty("User-Agent", "Mozilla/5.0");
+            conn.setConnectTimeout(8000);
+            conn.setReadTimeout(10000);
+            
+            int code = conn.getResponseCode();
+            if (code != 200) return null;
+            
+            BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream()));
+            StringBuilder sb = new StringBuilder();
+            String line;
+            while ((line = reader.readLine()) != null) sb.append(line);
+            reader.close();
+            conn.disconnect();
+            
+            return parseTranslation(sb.toString());
+        } catch (Exception e) {
+            return null;
+        }
+    }
+    
+    private String translateOffline(String text) {
+        // Simple offline dictionary (EN → ID)
+        String lower = text.toLowerCase().trim();
+        
+        if (isEnglishToIndonesian) {
+            String[][] dict = {
+                {"hello", "halo"}, {"good morning", "selamat pagi"},
+                {"good night", "selamat malam"}, {"thank you", "terima kasih"},
+                {"how are you", "apa kabar"}, {"goodbye", "selamat tinggal"},
+                {"yes", "ya"}, {"no", "tidak"}, {"please", "tolong"},
+                {"sorry", "maaf"}, {"welcome", "selamat datang"},
+                {"friend", "teman"}, {"love", "cinta"}, {"happy", "senang"},
+                {"sad", "sedih"}, {"angry", "marah"}, {"beautiful", "cantik"},
+                {"good", "bagus"}, {"bad", "buruk"}, {"big", "besar"},
+                {"small", "kecil"}, {"fast", "cepat"}, {"slow", "lambat"},
+                {"hot", "panas"}, {"cold", "dingin"}, {"water", "air"},
+                {"food", "makanan"}, {"drink", "minuman"}, {"house", "rumah"},
+                {"school", "sekolah"}, {"work", "kerja"}, {"play", "bermain"},
+                {"read", "membaca"}, {"write", "menulis"}, {"speak", "berbicara"},
+                {"listen", "mendengar"}, {"see", "melihat"}, {"go", "pergi"},
+                {"come", "datang"}, {"eat", "makan"}, {"sleep", "tidur"},
+                {"i love you", "aku cinta kamu"}, {"what", "apa"},
+                {"who", "siapa"}, {"where", "di mana"}, {"when", "kapan"},
+                {"why", "mengapa"}, {"how", "bagaimana"},
+            };
+            
+            for (String[] pair : dict) {
+                if (lower.equals(pair[0])) return pair[1];
+                if (lower.contains(pair[0])) {
+                    return text.replaceAll("(?i)" + pair[0], pair[1]);
+                }
+            }
+            return "Terjemahan offline tidak ditemukan untuk: " + text;
+        } else {
+            String[][] dict = {
+                {"halo", "hello"}, {"selamat pagi", "good morning"},
+                {"selamat malam", "good night"}, {"terima kasih", "thank you"},
+                {"apa kabar", "how are you"}, {"selamat tinggal", "goodbye"},
+                {"ya", "yes"}, {"tidak", "no"}, {"tolong", "please"},
+                {"maaf", "sorry"}, {"selamat datang", "welcome"},
+                {"teman", "friend"}, {"cinta", "love"}, {"senang", "happy"},
+                {"sedih", "sad"}, {"marah", "angry"}, {"cantik", "beautiful"},
+                {"bagus", "good"}, {"buruk", "bad"}, {"besar", "big"},
+                {"kecil", "small"}, {"cepat", "fast"}, {"lambat", "slow"},
+                {"panas", "hot"}, {"dingin", "cold"}, {"air", "water"},
+                {"makanan", "food"}, {"minuman", "drink"}, {"rumah", "house"},
+                {"sekolah", "school"}, {"kerja", "work"}, {"bermain", "play"},
+                {"membaca", "read"}, {"menulis", "write"}, {"berbicara", "speak"},
+                {"mendengar", "listen"}, {"melihat", "see"}, {"pergi", "go"},
+                {"datang", "come"}, {"makan", "eat"}, {"tidur", "sleep"},
+                {"aku cinta kamu", "i love you"}, {"apa", "what"},
+                {"siapa", "who"}, {"di mana", "where"}, {"kapan", "when"},
+                {"mengapa", "why"}, {"bagaimana", "how"},
+            };
+            
+            for (String[] pair : dict) {
+                if (lower.equals(pair[0])) return pair[1];
+                if (lower.contains(pair[0])) {
+                    return text.replaceAll("(?i)" + pair[0], pair[1]);
+                }
+            }
+            return "Offline translation not found for: " + text;
+        }
+    }
+    
+    private void copyToClipboard(String text) {
+        ClipboardManager clipboard = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
+        if (clipboard != null) {
+            ClipData clip = ClipData.newPlainText("translation", text);
+            clipboard.setPrimaryClip(clip);
+            Toast.makeText(this, "✅ Tersalin!", Toast.LENGTH_SHORT).show();
+        }
     }
     
     private String parseTranslation(String response) {
