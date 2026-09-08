@@ -3,98 +3,116 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:padding="10dp"
-    android:background="@drawable/bg_floating"
-    android:elevation="8dp"
+    android:padding="6dp"
+    android:background="#33000000"
     android:focusable="true"
     android:clickable="true">
     
-    <!-- Header -->
+    <!-- Header: Drag area + Tombol kecil -->
     <LinearLayout
+        android:id="@+id/dragHandle"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
+        android:layout_height="30dp"
         android:orientation="horizontal"
-        android:gravity="center_vertical">
+        android:gravity="center_vertical"
+        android:background="#22000000"
+        android:padding="4dp">
         
         <TextView
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="🌐 Translator"
-            android:textColor="#4CAF50"
-            android:textSize="14sp"
-            android:textStyle="bold"/>
+            android:text="🌐"
+            android:textSize="16sp"
+            android:gravity="center_vertical"/>
         
         <Button
             android:id="@+id/btnSwap"
-            android:layout_width="35dp"
-            android:layout_height="30dp"
+            android:layout_width="30dp"
+            android:layout_height="25dp"
             android:text="⇄"
-            android:textSize="14sp"
-            android:background="#2a2a4e"
+            android:textSize="12sp"
+            android:background="@drawable/bg_btn_small"
             android:textColor="#FFF"
-            android:padding="0dp"/>
+            android:padding="0dp"
+            android:minWidth="0dp"
+            android:minHeight="0dp"/>
         
         <Button
             android:id="@+id/btnClose"
-            android:layout_width="35dp"
-            android:layout_height="30dp"
+            android:layout_width="30dp"
+            android:layout_height="25dp"
             android:text="✕"
-            android:textSize="14sp"
-            android:background="#FF4444"
+            android:textSize="12sp"
+            android:background="@drawable/bg_btn_close"
             android:padding="0dp"
+            android:minWidth="0dp"
+            android:minHeight="0dp"
             android:layout_marginStart="4dp"/>
     </LinearLayout>
     
-    <!-- Input Area -->
+    <!-- Input minimal -->
     <EditText
         android:id="@+id/etInput"
         android:layout_width="match_parent"
-        android:layout_height="50dp"
-        android:hint="Ketik teks di sini..."
+        android:layout_height="35dp"
+        android:hint="Ketik..."
         android:textColor="#FFF"
-        android:textColorHint="#888"
-        android:background="@drawable/bg_input"
-        android:padding="12dp"
-        android:textSize="13sp"
-        android:layout_marginTop="8dp"
+        android:textColorHint="#AAA"
+        android:background="@drawable/bg_input_trans"
+        android:padding="8dp"
+        android:textSize="12sp"
+        android:layout_marginTop="4dp"
         android:inputType="text"
         android:focusable="true"
         android:focusableInTouchMode="true"
         android:cursorVisible="true"/>
     
-    <!-- Tombol Terjemahkan -->
+    <!-- Tombol terjemahkan minimal -->
     <Button
         android:id="@+id/btnTranslate"
         android:layout_width="match_parent"
-        android:layout_height="40dp"
-        android:text="🔄 Terjemahkan"
-        android:textSize="13sp"
+        android:layout_height="30dp"
+        android:text="Terjemahkan"
+        android:textSize="11sp"
         android:textColor="#FFF"
-        android:background="@drawable/bg_button"
-        android:layout_marginTop="8dp"/>
+        android:background="@drawable/bg_btn_translate"
+        android:layout_marginTop="4dp"
+        android:padding="0dp"/>
     
-    <!-- Hasil -->
+    <!-- Hasil - auto hide jika kosong -->
     <TextView
         android:id="@+id/tvOutput"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Hasil terjemahan..."
+        android:text=""
         android:textColor="#FFF"
-        android:textSize="13sp"
-        android:background="@drawable/bg_output"
-        android:padding="12dp"
-        android:layout_marginTop="8dp"
-        android:minHeight="50dp"/>
+        android:textSize="11sp"
+        android:background="@drawable/bg_output_trans"
+        android:padding="6dp"
+        android:layout_marginTop="4dp"
+        android:minHeight="25dp"
+        android:visibility="gone"/>
+    
+    <!-- Rekomendasi kata -->
+    <TextView
+        android:id="@+id/tvRecommendation"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text=""
+        android:textColor="#4CAF50"
+        android:textSize="10sp"
+        android:padding="4dp"
+        android:visibility="gone"/>
     
     <!-- Credit -->
     <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Created By Yad | Designer Yad | Coding By Yad"
-        android:textColor="#666"
-        android:textSize="9sp"
+        android:text="By Yad"
+        android:textColor="#888"
+        android:textSize="8sp"
         android:gravity="center"
-        android:layout_marginTop="4dp"/>
+        android:layout_marginTop="2dp"/>
     
 </LinearLayout>
